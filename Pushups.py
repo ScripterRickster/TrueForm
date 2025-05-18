@@ -1,11 +1,8 @@
-from typing import NamedTuple
-
 import cv2
 import mediapipe as mp
 import numpy as np
-import time  # Import time for timestamp
-
-#import webapp
+from typing import NamedTuple
+import time
 
 UpAngle = 160
 DownAngle = 70
@@ -18,7 +15,6 @@ cap = cv2.VideoCapture(0)
 
 push_up_count = 0
 stage = "up"
-
 warning_start = 0
 wduration = 2  # seconds
 
@@ -50,12 +46,9 @@ while cap.isOpened():
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results: NamedTuple = pose.process(rgb_frame)
 
-    # ... (rest of your code above remains unchanged)
-
     if results.pose_landmarks:
         lm = results.pose_landmarks.landmark
 
-        # Extract landmarks
         ls = get_coords(lm, mp_pose.PoseLandmark.LEFT_SHOULDER)
         le = get_coords(lm, mp_pose.PoseLandmark.LEFT_ELBOW)
         lw = get_coords(lm, mp_pose.PoseLandmark.LEFT_WRIST)
@@ -74,7 +67,6 @@ while cap.isOpened():
 
         lefta_ang = calc_angle(ls, le, lw)
         righta_angle = calc_angle(rs, re, rw)
-
         angle_lk = calc_angle(lh, lk, la)
         angle_rk = calc_angle(rh, rk, ra)
 
@@ -94,15 +86,11 @@ while cap.isOpened():
         font_scale = 1
         thickness = 2
         line_type = cv2.LINE_AA
-        color = (255, 255, 255)  # White color for angle text
+        color = (255, 255, 255)
 
-
-        # Convert normalized coords to pixel coords for text placement
         def to_pixel_coords(point):
             return int(point[0] * frame_width), int(point[1] * frame_height)
 
-
-        # Draw angles next to relevant joints (with slight offset)
         offsets = {
             'shoulder': (10, -10),
             'elbow': (10, -10),
@@ -111,22 +99,18 @@ while cap.isOpened():
             'ankle': (10, -10)
         }
 
-        # Left arm angles (at elbow)
         le_px = to_pixel_coords(le)
         cv2.putText(frame, f'{int(lefta_ang)}', (le_px[0] + offsets['elbow'][0], le_px[1] + offsets['elbow'][1]),
                     font, font_scale, color, thickness, line_type)
 
-        # Right arm angles (at elbow)
         re_px = to_pixel_coords(re)
         cv2.putText(frame, f'{int(righta_angle)}', (re_px[0] + offsets['elbow'][0], re_px[1] + offsets['elbow'][1]),
                     font, font_scale, color, thickness, line_type)
 
-        # Left knee angle (at knee)
         lk_px = to_pixel_coords(lk)
         cv2.putText(frame, f'{int(angle_lk)}', (lk_px[0] + offsets['knee'][0], lk_px[1] + offsets['knee'][1]),
                     font, font_scale, color, thickness, line_type)
 
-        # Right knee angle (at knee)
         rk_px = to_pixel_coords(rk)
         cv2.putText(frame, f'{int(angle_rk)}', (rk_px[0] + offsets['knee'][0], rk_px[1] + offsets['knee'][1]),
                     font, font_scale, color, thickness, line_type)
@@ -144,10 +128,7 @@ while cap.isOpened():
         if not legs_straight:
             warning_start = time.time()
 
-        # Draw black box in the top-left corner (e.g., 300x100 px)
         cv2.rectangle(frame, (20, 20), (220, 60), (0, 0, 0), thickness=cv2.FILLED)
-
-        # Move push-up count and warning up to avoid overlapping the joint text
         cv2.putText(frame, f'Pushups: {push_up_count}', (30, 50), font, 1, (255, 255, 255), 2, line_type)
 
         if time.time() - warning_start < wduration:
@@ -156,28 +137,27 @@ while cap.isOpened():
         calories = (push_up_count * 2) / 5
         calorie_text = f'Calories: {calories:.1f}'
 
-        # Fixed box size and position (width=200, height=40)
         box_width, box_height = 230, 40
-        box_x1 = frame_width - box_width - 30  # 30 px from right edge
-        box_y1 = 10  # 10 px from top edge
+        box_x1 = frame_width - box_width - 30
+        box_y1 = 10
         box_x2 = box_x1 + box_width
         box_y2 = box_y1 + box_height
 
-        # Draw filled black rectangle as background
         cv2.rectangle(frame, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), thickness=cv2.FILLED)
-
-        # Draw calorie text inside the box with some padding
         text_x = box_x1 + 10
-        text_y = box_y1 + 30  # vertical position for text baseline
-
+        text_y = box_y1 + 30
         cv2.putText(frame, calorie_text, (text_x, text_y), font, font_scale, (255, 255, 0), thickness, line_type)
 
     cv2.imshow('PushUp Counter', frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    key = cv2.waitKey(1)
+
+    if key == 27:  # ESC key
+        break
+
+    prop = cv2.getWindowProperty('PushUp Counter', cv2.WND_PROP_VISIBLE)
+    if prop < 1:
         break
 
 cap.release()
-
-#webapp.displayStatistics("pushup",push_up_count)
 cv2.destroyAllWindows()
