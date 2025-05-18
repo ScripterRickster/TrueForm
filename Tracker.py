@@ -93,6 +93,7 @@ while cap.isOpened():
 
     cv2.imshow('Body Tracker Demo', frame)
     key = cv2.waitKey(1)
+    #27 = escape key | cv2.WND_PROP_VISIBLE -> whether window is visible or not (I.E. minimized)
     if key == 27 or cv2.getWindowProperty('Body Tracker Demo', cv2.WND_PROP_VISIBLE) < 1:
         break
 
