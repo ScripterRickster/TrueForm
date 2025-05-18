@@ -132,7 +132,7 @@ while cap.isOpened():
         cv2.putText(frame, f'Pushups: {push_up_count}', (30, 50), font, 1, (255, 255, 255), 2, line_type)
 
         if time.time() - warning_start < wduration:
-            cv2.putText(frame, 'Keep your legs straight!', (30, 90), font, 1.5, (0, 0, 255), 3, line_type)
+            cv2.putText(frame, 'Keep your legs straight!', (20, 110), font, 1.5, (0, 0, 255), 3, line_type)
 
         calories = (push_up_count * 2) / 5
         calorie_text = f'Calories: {calories:.1f}'
