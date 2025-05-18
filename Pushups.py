@@ -151,13 +151,10 @@ while cap.isOpened():
     cv2.imshow('PushUp Counter', frame)
 
     key = cv2.waitKey(1)
-
-    if key == 27:  # ESC key
+    # 27 = escape key | cv2.WND_PROP_VISIBLE -> whether window is visible or not (I.E. minimized)
+    if key == 27 or cv2.getWindowProperty('PushUp Counter', cv2.WND_PROP_VISIBLE) < 1:  # ESC key
         break
 
-    prop = cv2.getWindowProperty('PushUp Counter', cv2.WND_PROP_VISIBLE)
-    if prop < 1:
-        break
 
 cap.release()
 cv2.destroyAllWindows()
