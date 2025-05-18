@@ -1,18 +1,17 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import math
 
-# Initialize MediaPipe Pose and Face Mesh
 mp_pose = mp.solutions.pose
-mp_face_mesh = mp.solutions.face_mesh
-
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
-face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-# Drawing specs for white lines and dots
 colour = (255, 255, 255)
-width = 2
-radius = 2
+width = 3
+radius = 4
+font = cv2.FONT_HERSHEY_SIMPLEX
+font_scale = 0.8  # Increased font size
+font_color = (255, 255, 255)  # White
 
 def draw(frame, point1, point2):
     h, w = frame.shape[:2]
@@ -26,10 +25,14 @@ def get_coords(landmarks, landmark_enum):
     lm = landmarks[landmark_enum.value]
     return [lm.x, lm.y]
 
-cap = cv2.VideoCapture(0)
+def calc_angle(a, b, c):
+    a, b, c = np.array(a), np.array(b), np.array(c)
+    ab = a - b
+    cb = c - b
+    radians = np.arccos(np.clip(np.dot(ab, cb) / (np.linalg.norm(ab) * np.linalg.norm(cb)), -1.0, 1.0))
+    return np.degrees(radians)
 
-# Select first 300 points for reduced detail face mesh
-subset_indices = set(range(0, 350))
+cap = cv2.VideoCapture(0)
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -38,59 +41,59 @@ while cap.isOpened():
 
     frame = cv2.flip(frame, 1)
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = pose.process(rgb_frame)
 
-    pose_results = pose.process(rgb_frame)
-    face_results = face_mesh.process(rgb_frame)
+    if results.pose_landmarks:
+        lm = results.pose_landmarks.landmark
 
-    # --- Draw Pose Landmarks ---
-    if pose_results.pose_landmarks:
-        lm = pose_results.pose_landmarks.landmark
+        # Key points
+        l_shoulder = get_coords(lm, mp_pose.PoseLandmark.LEFT_SHOULDER)
+        l_elbow = get_coords(lm, mp_pose.PoseLandmark.LEFT_ELBOW)
+        l_wrist = get_coords(lm, mp_pose.PoseLandmark.LEFT_WRIST)
 
-        left_shoulder = get_coords(lm, mp_pose.PoseLandmark.LEFT_SHOULDER)
-        left_elbow = get_coords(lm, mp_pose.PoseLandmark.LEFT_ELBOW)
-        left_wrist = get_coords(lm, mp_pose.PoseLandmark.LEFT_WRIST)
+        r_shoulder = get_coords(lm, mp_pose.PoseLandmark.RIGHT_SHOULDER)
+        r_elbow = get_coords(lm, mp_pose.PoseLandmark.RIGHT_ELBOW)
+        r_wrist = get_coords(lm, mp_pose.PoseLandmark.RIGHT_WRIST)
 
-        right_shoulder = get_coords(lm, mp_pose.PoseLandmark.RIGHT_SHOULDER)
-        right_elbow = get_coords(lm, mp_pose.PoseLandmark.RIGHT_ELBOW)
-        right_wrist = get_coords(lm, mp_pose.PoseLandmark.RIGHT_WRIST)
+        l_hip = get_coords(lm, mp_pose.PoseLandmark.LEFT_HIP)
+        l_knee = get_coords(lm, mp_pose.PoseLandmark.LEFT_KNEE)
+        l_ankle = get_coords(lm, mp_pose.PoseLandmark.LEFT_ANKLE)
 
-        left_hip = get_coords(lm, mp_pose.PoseLandmark.LEFT_HIP)
-        left_knee = get_coords(lm, mp_pose.PoseLandmark.LEFT_KNEE)
-        left_ankle = get_coords(lm, mp_pose.PoseLandmark.LEFT_ANKLE)
+        r_hip = get_coords(lm, mp_pose.PoseLandmark.RIGHT_HIP)
+        r_knee = get_coords(lm, mp_pose.PoseLandmark.RIGHT_KNEE)
+        r_ankle = get_coords(lm, mp_pose.PoseLandmark.RIGHT_ANKLE)
 
-        right_hip = get_coords(lm, mp_pose.PoseLandmark.RIGHT_HIP)
-        right_knee = get_coords(lm, mp_pose.PoseLandmark.RIGHT_KNEE)
-        right_ankle = get_coords(lm, mp_pose.PoseLandmark.RIGHT_ANKLE)
+        # Midpoints
+        mid_shoulder = [(l_shoulder[0] + r_shoulder[0]) / 2, (l_shoulder[1] + r_shoulder[1]) / 2]
+        mid_hip = [(l_hip[0] + r_hip[0]) / 2, (l_hip[1] + r_hip[1]) / 2]
 
-        pose_connections = [
-            (left_shoulder, left_elbow), (left_elbow, left_wrist),
-            (right_shoulder, right_elbow), (right_elbow, right_wrist),
-            (left_hip, left_knee), (left_knee, left_ankle),
-            (right_hip, right_knee), (right_knee, right_ankle),
-            (left_shoulder, right_shoulder),  # shoulder line
-            (left_hip, right_hip)
+        # Connections (removed thumbs)
+        connections = [
+            (l_shoulder, l_elbow), (l_elbow, l_wrist),
+            (r_shoulder, r_elbow), (r_elbow, r_wrist),
+            (l_hip, l_knee), (l_knee, l_ankle),
+            (r_hip, r_knee), (r_knee, r_ankle),
+            (l_shoulder, r_shoulder), (mid_shoulder, mid_hip)
         ]
 
-        for p1, p2 in pose_connections:
+        for p1, p2 in connections:
             draw(frame, p1, p2)
 
-    if face_results.multi_face_landmarks:
-        for face_landmarks in face_results.multi_face_landmarks:
-            for connection in mp_face_mesh.FACEMESH_TESSELATION:
-                start_idx, end_idx = connection
-                if start_idx in subset_indices and end_idx in subset_indices:
-                    start = face_landmarks.landmark[start_idx]
-                    end = face_landmarks.landmark[end_idx]
-                    draw(frame, (start.x, start.y), (end.x, end.y))
+        # Display angles
+        for a, b, c in [
+            (l_shoulder, l_elbow, l_wrist),
+            (r_shoulder, r_elbow, r_wrist),
+            (l_hip, l_knee, l_ankle),
+            (r_hip, r_knee, r_ankle)
+        ]:
+            angle = int(calc_angle(a, b, c))
+            h, w = frame.shape[:2]
+            px, py = int(b[0] * w), int(b[1] * h)
+            cv2.putText(frame, f'{angle}°', (px + 10, py - 10), font, font_scale, font_color, 2)
 
-    cv2.imshow('Body and Face Tracking', frame)
+    cv2.imshow('Body Tracker Demo', frame)
     key = cv2.waitKey(1)
-
-    if key == 27:  # ESC key
-        break
-
-    prop = cv2.getWindowProperty('Body and Face Tracking', cv2.WND_PROP_VISIBLE)
-    if prop < 1:
+    if key == 27 or cv2.getWindowProperty('Body Tracker Demo', cv2.WND_PROP_VISIBLE) < 1:
         break
 
 cap.release()
